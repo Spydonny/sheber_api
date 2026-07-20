@@ -23,6 +23,43 @@ CATEGORIES = {
 }
 
 
+def _media_path(ref: str) -> str:
+    """Нормализует любую ссылку на медиа к относительному пути ``/media/{id}``.
+
+    В базе накопилось три формата, и все они приводятся к одному:
+    - готовый абсолютный URL (фото от бота: ``http://host/media/{id}``) —
+      берём только хвост ``/media/{id}``, отбрасывая host: раздаёт медиа именно
+      api/ (эндпоинт ниже), а host в старых записях мог быть указан неверно
+      (напр. порт бота, который /media не отдаёт);
+    - голый media_id (сгенерированные картинки сториборда, старые записи);
+    - уже относительный ``/media/{id}``.
+
+    Витрина сама достраивает путь до своего API_BASE — так отображение не зависит
+    от того, какой ``PUBLIC_MEDIA_URL`` был вшит в документ при загрузке.
+    """
+    if not ref:
+        return ref
+    if "/media/" in ref:
+        return "/media/" + ref.rsplit("/media/", 1)[1]
+    if ref.startswith("/media/"):
+        return ref
+    return f"/media/{ref}"
+
+
+def _resolve_photos(product: dict[str, Any]) -> dict[str, Any]:
+    """Отдаёт витрине фото товара как пути ``/media/{id}``, читаемые прямо из Mongo.
+
+    Приоритет: реальные фото мастера → если их нет, сгенерированные ботом картинки
+    сториборда (``storyboard_images``). Так витрина всегда показывает настоящее
+    изображение из GridFS, а не заглушку-логотип.
+    """
+    photos = [p for p in (product.get("photos") or []) if p]
+    if not photos:
+        photos = [p for p in (product.get("storyboard_images") or []) if p]
+    product["photos"] = [_media_path(str(p)) for p in photos]
+    return product
+
+
 def _contact_link(user: Optional[dict[str, Any]]) -> Optional[str]:
     if not user:
         return None
@@ -58,6 +95,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_origins_list,
         allow_methods=["*"],
         allow_headers=["*"],
+        
     )
 
     @app.get("/api/categories")
@@ -70,7 +108,8 @@ def create_app() -> FastAPI:
         q: Optional[str] = None,
         limit: int = Query(default=60, ge=1, le=100),
     ):
-        return await repo.list_products(status="published", category=category, q=q, limit=limit)
+        items = await repo.list_products(status="published", category=category, q=q, limit=limit)
+        return [_resolve_photos(p) for p in items]
 
     @app.get("/api/products/{pid}")
     async def product(pid: str):
@@ -79,6 +118,7 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="not found")
         await repo.record_event(pid, "view")
         p["views"] = p.get("views", 0) + 1
+        _resolve_photos(p)
         # Обогащаем контактами продавца
         seller = await _seller_of(p)
         p["seller_contact"] = {
