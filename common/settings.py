@@ -47,15 +47,16 @@ class Settings:
     PUBLIC_MEDIA_URL: str = os.getenv("PUBLIC_MEDIA_URL", "http://localhost:8000").rstrip("/")
 
     PORT: int = int(os.getenv("PORT", "8001"))
-    API_PORT: int = int(os.getenv("API_PORT", "8000"))
+    # API_PORT — для локальной разработки. На Railway/PaaS PORT задаётся платформой.
+    API_PORT: int = int(os.getenv("API_PORT", os.getenv("PORT", "8000")))
 
-    # CORS для api/ (список через запятую). "*" по умолчанию — удобно для хакатона,
-    # в проде сузить до реального домена фронта.
+    # CORS для api/ (список через запятую). "*" по умолчанию.
+    # На Railway/Vercel — задать CORS_ORIGINS=https://sheber-nine.vercel.app
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "*").strip()
 
     @property
     def cors_origins_list(self) -> list[str]:
-        if self.CORS_ORIGINS == "*":
+        if not self.CORS_ORIGINS or self.CORS_ORIGINS == "*":
             return ["*"]
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
