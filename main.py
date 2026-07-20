@@ -15,4 +15,4 @@ with contextlib.suppress(Exception):
     sys.stdout.reconfigure(encoding="utf-8")
 
 if __name__ == "__main__":
-    uvicorn.run("api.routes:app", host="localhost", port=settings.API_PORT, reload=False)
+    uvicorn.run("api.routes:app", host="0.0.0.0", port=settings.API_PORT, reload=False)

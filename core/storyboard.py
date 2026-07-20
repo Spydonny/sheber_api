@@ -11,7 +11,7 @@ from typing import Any, Optional
 
 from ..services import deepseek
 
-_PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "storyboard_prompt_draft.md"
+_PROMPT_PATH = Path(__file__).resolve().parent.parent / "storyboard_prompt_draft.md"
 
 _SYSTEM_PROMPT: Optional[str] = None
 
