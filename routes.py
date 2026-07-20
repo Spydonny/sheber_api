@@ -79,6 +79,12 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="not found")
         await repo.record_event(pid, "view")
         p["views"] = p.get("views", 0) + 1
+        # Обогащаем контактами продавца
+        seller = await _seller_of(p)
+        p["seller_contact"] = {
+            "phone": p.get("seller_phone") or (seller.get("phone") if seller else None),
+            "link": _contact_link(seller),
+        }
         return p
 
     @app.post("/api/products/{pid}/lead")
@@ -88,8 +94,9 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="not found")
         seller = await _seller_of(p)
         link = _contact_link(seller)
+        phone = p.get("seller_phone") or (seller.get("phone") if seller else None)
         await repo.record_event(pid, "lead")
-        return {"contact_url": link}
+        return {"contact_url": link, "phone": phone}
 
     @app.post("/api/products/{pid}/sale")
     async def sale(pid: str):
