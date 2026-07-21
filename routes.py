@@ -49,13 +49,17 @@ def _media_path(ref: str) -> str:
 def _resolve_photos(product: dict[str, Any]) -> dict[str, Any]:
     """Отдаёт витрине фото товара как пути ``/media/{id}``, читаемые прямо из Mongo.
 
-    Приоритет: реальные фото мастера → если их нет, сгенерированные ботом картинки
-    сториборда (``storyboard_images``). Так витрина всегда показывает настоящее
-    изображение из GridFS, а не заглушку-логотип.
+    Приоритет: сгенерированные ботом карточки-инфографики (``storyboard_images``) —
+    выглядят как карточки маркетплейса (Wildberries/Ozon) с заголовком/ценой/буллетами
+    поверх настоящего фото товара, поэтому идут ПЕРВЫМИ и становятся дефолтным
+    изображением (обложка в каталоге, главное фото в галерее). Реальные фото мастера
+    добавляются следом — ничего не теряется, покупатель может пролистать до них в
+    галерее. Пока сториборд ещё не сгенерирован (сразу после публикации) — показываем
+    только реальные фото, так витрина никогда не остаётся без изображения.
     """
-    photos = [p for p in (product.get("photos") or []) if p]
-    if not photos:
-        photos = [p for p in (product.get("storyboard_images") or []) if p]
+    cards = [p for p in (product.get("storyboard_images") or []) if p]
+    real = [p for p in (product.get("photos") or []) if p]
+    photos = cards + real if cards else real
     product["photos"] = [_media_path(str(p)) for p in photos]
     return product
 
